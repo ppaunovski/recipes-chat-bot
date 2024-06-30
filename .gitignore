@@ -1,7 +1,8 @@
-env
-.env
+notebooks
 qdrant
 data\1k.json
 data\det_ingrs.json
 data/1k.json
 data/det_ingrs.json
+data/raw
+data/wrangled
