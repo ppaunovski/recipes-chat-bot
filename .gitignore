@@ -1,0 +1,6 @@
+notebooks
+qdrant
+data
+.env
+src/__pycache__
+.env
