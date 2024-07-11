@@ -1,7 +1,0 @@
-[tool.ruff]
-line-length = 88  # Example setting
-lint.select = ["ANN"]  # Enable rules related to annotations (hypothetical)
-
-[tool.mypy]
-strict = true
-ignore_missing_imports = true
