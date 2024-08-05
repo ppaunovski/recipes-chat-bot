@@ -35,9 +35,6 @@ def get_nodes_and_egdes_df(composed_graph: nx.DiGraph) -> tuple[pd.DataFrame, pd
     nodes_df.columns = ['Node'] + list(nodes_df.columns[1:])
     edges_df = nx.to_pandas_edgelist(composed_graph)
 
-    del nodes_df['size']
-    del edges_df['width']
-
     list_of_recipes_from_df = set(edges_df.query('label=="has_ingr"')['source'].values)
     nodes_df['type'] = nodes_df['Node'].apply(lambda elem: 'recipe' if elem in list_of_recipes_from_df else 'ingr')
     nodes_df = nodes_df.sort_values(by='type')
