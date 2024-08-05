@@ -98,3 +98,45 @@ def test_link_prediction(model, test_data, start, to):
 
     val_loss = mse_loss(pred, target).sqrt()
     print(f'Loss: {val_loss:.4f}')
+    
+
+def train_lightgcn(dataset, train_loader, model, optimizer, num_ingrs, epochs=1):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)
+
+    # Print dataset attributes for debugging
+    print("Dataset attributes:", dataset.__dict__)
+
+    for epoch in range(epochs):
+        total_loss, total_examples = 0, 0
+
+        for node_ids in train_loader:
+            # Use edge_index instead of edge_label_index if it's not present
+            pos_edge_label_index = dataset.edge_index[:, node_ids]
+            generated = torch.randint(0, num_ingrs, (node_ids.numel(),)).to(device)
+
+            # Ensure generated indices are within bounds
+            generated = torch.clamp(generated, 0, num_ingrs - 1)
+
+            neg_edge_label_index = torch.stack([pos_edge_label_index[0],
+                                                generated],
+                                               dim=0)
+
+            edge_label_index = torch.cat([pos_edge_label_index, neg_edge_label_index], dim=1)
+
+            # Check if any index in edge_label_index exceeds the bounds
+            if edge_label_index.max() >= num_ingrs:
+                print(f"Warning: Index out of bounds detected in edge_label_index with max value {edge_label_index.max()}")
+
+            optimizer.zero_grad()
+
+            pos_rank, neg_rank = model(dataset.edge_index.to(device), edge_label_index.to(device)).chunk(2)
+
+            loss = model.recommendation_loss(pos_rank, neg_rank, node_id=edge_label_index.unique())
+            loss.backward()
+            optimizer.step()
+
+            total_loss += float(loss) * pos_rank.numel()
+            total_examples += pos_rank.numel()
+
+            print(f'Epoch: {epoch:03d}, Loss: {total_loss / total_examples:.4f}')
