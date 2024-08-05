@@ -1,5 +1,6 @@
 import json
 import pandas as pd
+import networkx as nx
 
 def load_data_from_json(path_to_json: str) -> list[dict]:
 
@@ -27,3 +28,23 @@ def gen_recipe_ingredient_data_frame(data: list[dict]) -> dict[str, list[str]]:
 
 def csv_file_to_pd_df(path_to_csv: str) -> pd.DataFrame:
    return pd.read_csv(path_to_csv)
+
+
+def get_nodes_and_egdes_df(composed_graph: nx.DiGraph) -> tuple[pd.DataFrame, pd.DataFrame]:
+    nodes_df = pd.DataFrame.from_dict(dict(composed_graph.nodes(data=True)), orient='index').reset_index()
+    nodes_df.columns = ['Node'] + list(nodes_df.columns[1:])
+    edges_df = nx.to_pandas_edgelist(composed_graph)
+
+    del nodes_df['size']
+    del edges_df['width']
+
+    list_of_recipes_from_df = set(edges_df.query('label=="has_ingr"')['source'].values)
+    nodes_df['type'] = nodes_df['Node'].apply(lambda elem: 'recipe' if elem in list_of_recipes_from_df else 'ingr')
+    nodes_df = nodes_df.sort_values(by='type')
+
+    ingr_counts = nodes_df['type'].value_counts()['ingr']
+    recipe_counts = nodes_df['type'].value_counts()['recipe']
+    
+    nodes_df['index'] = list(range(ingr_counts)) + list(range(recipe_counts))
+
+    return (nodes_df, edges_df)
