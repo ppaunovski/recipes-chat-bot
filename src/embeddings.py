@@ -33,3 +33,4 @@ def get_subs_embeddings(subs_df: pd.DataFrame) -> list[list[float]]:
     except:
       ...
     subs_embeddings.append(list(map(get_embedding_from_model, all_subs)))
+  return subs_embeddings
