@@ -1,0 +1,1 @@
+cos_sim = lambda a,b: (a @ b.T) / (norm(a)*norm(b))
