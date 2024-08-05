@@ -8,12 +8,14 @@ from data_loader import gen_recipe_ingredient_data_frame
 import numpy as np
 from tqdm import tqdm
 
-def generate_graph(data: list[dict], from_label:str='recipe', to_label:str='ingredient', label:str='has_ingr'):
+def generate_graph(data: list[dict], from_label:str='recipe', to_label:str='ingredient', label:str='has_ingr') -> nx.DiGraph:
    food_recipe_graph = nx.DiGraph()
    df = gen_recipe_ingredient_data_frame(data)
 
    for index, row in df.iterrows():
      food_recipe_graph.add_edge(row[from_label], row[to_label], label=label)
+
+   return food_recipe_graph 
    
 def gen_clusters_of_nodes(df: pd.DataFrame, eps:float = 0.04, min_samples:int=2, metric:str='precomputed') -> dict[int, list]:
     unique_ingrs = df['ingredient'].unique()
