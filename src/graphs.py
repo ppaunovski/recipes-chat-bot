@@ -8,23 +8,37 @@ from data_loader import gen_recipe_ingredient_data_frame
 import numpy as np
 from tqdm import tqdm
 
-def generate_graph(data: list[dict], from_label:str='recipe', to_label:str='ingredient', label:str='has_ingr') -> nx.DiGraph:
-   food_recipe_graph = nx.DiGraph()
-   df = gen_recipe_ingredient_data_frame(data)
 
-   for index, row in df.iterrows():
-     food_recipe_graph.add_edge(row[from_label], row[to_label], label=label)
+def generate_graph(
+    data: list[dict],
+    from_label: str = "recipe",
+    to_label: str = "ingredient",
+    label: str = "has_ingr",
+) -> nx.DiGraph:
+    food_recipe_graph = nx.DiGraph()
+    df = gen_recipe_ingredient_data_frame(data)
 
-   return food_recipe_graph 
-   
-def gen_clusters_of_nodes(df: pd.DataFrame, eps:float = 0.04, min_samples:int=2, metric:str='precomputed') -> dict[int, list]:
-    unique_ingrs = df['ingredient'].unique()
+    for index, row in df.iterrows():
+        food_recipe_graph.add_edge(row[from_label], row[to_label], label=label)
+
+    return food_recipe_graph
+
+
+def gen_clusters_of_nodes(
+    df: pd.DataFrame,
+    eps: float = 0.04,
+    min_samples: int = 2,
+    metric: str = "precomputed",
+) -> dict[int, list]:
+    unique_ingrs = df["ingredient"].unique()
     corr_matrix = get_corr_matrix_from_model(unique_ingrs)
     cos_matrix = cosine_similarity(corr_matrix)
     distance_matrix = 1 - cos_matrix
     distance_matrix[distance_matrix < 0] = 0
 
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric=metric) # eps = 1 - 0.96, where 0.96 is the treshold
+    dbscan = DBSCAN(
+        eps=eps, min_samples=min_samples, metric=metric
+    )  # eps = 1 - 0.96, where 0.96 is the treshold
     labels = dbscan.fit_predict(distance_matrix)
 
     clusters = defaultdict(list)
@@ -33,19 +47,25 @@ def gen_clusters_of_nodes(df: pd.DataFrame, eps:float = 0.04, min_samples:int=2,
 
     for cluster_id, items in clusters.items():
         if cluster_id != -1:
-            print(f'Cluster {cluster_id}: {set(items)}')
-    
+            print(f"Cluster {cluster_id}: {set(items)}")
+
     return clusters
 
-def switch_edge(edges: list[tuple[str, str, dict]], node: str, index: int = 0) -> list[tuple[str, str, str]]:
-  changed_edges = []
-  for edge in edges:
-    x, y, data_dict = edge
-    label = data_dict['label']
-    changed_edges.append((node, y, label) if index==0 else (x, node, label))
-  return changed_edges
 
-def remove_similar_nodes(food_recipe_graph: nx.DiGraph, clusters: dict[int, list]) -> nx.DiGraph:
+def switch_edge(
+    edges: list[tuple[str, str, dict]], node: str, index: int = 0
+) -> list[tuple[str, str, str]]:
+    changed_edges = []
+    for edge in edges:
+        x, y, data_dict = edge
+        label = data_dict["label"]
+        changed_edges.append((node, y, label) if index == 0 else (x, node, label))
+    return changed_edges
+
+
+def remove_similar_nodes(
+    food_recipe_graph: nx.DiGraph, clusters: dict[int, list]
+) -> nx.DiGraph:
     to_switch_matrix = [list(set(items)) for cluster_id, items in clusters.items()]
 
     for class_of_similar_nodes in to_switch_matrix:
@@ -68,32 +88,47 @@ def remove_similar_nodes(food_recipe_graph: nx.DiGraph, clusters: dict[int, list
     return food_recipe_graph
     # ova dolgo trae
 
-def generate_subs_graph(subs_df: pd.DataFrame) -> nx.DiGraph:
-   food_subs_graph = nx.DiGraph()
 
-   for index, row in list(subs_df.iterrows()):
-    if row['Substitutions'] != 'nan':
-        subs = row['Substitutions'].split(',')
-        for sub in subs:
-            food_subs_graph.add_edge(row['Name'], sub, label='has_sub')
-    if row['Also known as'] != 'nan':
-        akas = row['Also known as'].split(', ')
-        for aka in akas:
-            food_subs_graph.add_edge(row['Name'], aka, label='also_known_as')
-    
-    return food_subs_graph
-   
-def get_similar_substitution_nodes(subs_embeddings: list[list[float]], 
-                                   recipe_ingredients_df: pd.DataFrame, 
-                                   sub_names: np.ndarray,
-                                   treshold:float = 0.96) -> list[tuple[str, str]]:
-   # Step 1: Collect all ingredient embeddings and substitute embeddings
-    ingr_embeddings = np.array([get_embedding_from_model(row['ingredient']) for _, row in recipe_ingredients_df.iterrows()])
-    subs_embeddings_flat = np.vstack(subs_embeddings)  # Flatten list of lists to a single matrix
+def generate_subs_graph(subs_df: pd.DataFrame) -> nx.DiGraph:
+    food_subs_graph = nx.DiGraph()
+
+    for index, row in list(subs_df.iterrows()):
+        if row["Substitutions"] != "nan":
+            subs = row["Substitutions"].split(",")
+            for sub in subs:
+                food_subs_graph.add_edge(row["Name"], sub, label="has_sub")
+        if row["Also known as"] != "nan":
+            akas = row["Also known as"].split(", ")
+            for aka in akas:
+                food_subs_graph.add_edge(row["Name"], aka, label="also_known_as")
+
+        return food_subs_graph
+
+
+def get_similar_substitution_nodes(
+    subs_embeddings: list[list[float]],
+    recipe_ingredients_df: pd.DataFrame,
+    sub_names: np.ndarray,
+    treshold: float = 0.96,
+) -> list[tuple[str, str]]:
+    # Step 1: Collect all ingredient embeddings and substitute embeddings
+    ingr_embeddings = np.array(
+        [
+            get_embedding_from_model(row["ingredient"])
+            for _, row in recipe_ingredients_df.iterrows()
+        ]
+    )
+    subs_embeddings_flat = np.vstack(
+        subs_embeddings
+    )  # Flatten list of lists to a single matrix
 
     # Step 2: Normalize the embeddings
-    ingr_embeddings_norm = ingr_embeddings / np.linalg.norm(ingr_embeddings, axis=1, keepdims=True)
-    subs_embeddings_norm = subs_embeddings_flat / np.linalg.norm(subs_embeddings_flat, axis=1, keepdims=True)
+    ingr_embeddings_norm = ingr_embeddings / np.linalg.norm(
+        ingr_embeddings, axis=1, keepdims=True
+    )
+    subs_embeddings_norm = subs_embeddings_flat / np.linalg.norm(
+        subs_embeddings_flat, axis=1, keepdims=True
+    )
 
     # Step 3: Matrix multiplication to compute cosine similarities
     cos_sim_matrix = np.dot(ingr_embeddings_norm, subs_embeddings_norm.T)
@@ -105,42 +140,48 @@ def get_similar_substitution_nodes(subs_embeddings: list[list[float]],
     threshold = treshold
     new_list_of_subs = []
 
-    for i, row in tqdm(enumerate(recipe_ingredients_df.itertuples()), total=len(recipe_ingredients_df)):
+    for i, row in tqdm(
+        enumerate(recipe_ingredients_df.itertuples()), total=len(recipe_ingredients_df)
+    ):
         similar_indices = np.where(cos_sim_matrix[i] > threshold)[0]
         for idx in similar_indices:
             # Find the corresponding substitute type using precomputed indices
-            sub_type_idx = np.searchsorted(sub_indices, idx, side='right')
+            sub_type_idx = np.searchsorted(sub_indices, idx, side="right")
             new_list_of_subs.append((row.ingredient, sub_names[sub_type_idx]))
-    
+
     return new_list_of_subs
 
+
 def gen_ingredient_substitution_edges(list_of_subs: list[list[float]]) -> pd.DataFrame:
-    new_edges_dict = {
-    'Ingredient': [],
-    'Substitution': []
-    }
+    new_edges_dict = {"Ingredient": [], "Substitution": []}
 
     for ingr, sub in list_of_subs:
-        new_edges_dict['Ingredient'].append(ingr)
-        new_edges_dict['Substitution'].append(sub)
-    
+        new_edges_dict["Ingredient"].append(ingr)
+        new_edges_dict["Substitution"].append(sub)
+
     new_edges_df = pd.DataFrame(new_edges_dict)
     return new_edges_df
 
-def combine_graphs(food_recipe_graph: nx.DiGraph, food_subs_graph: nx.DiGraph, edges_df: pd.DataFrame, clusters: dict[int, list]) -> nx.DiGraph:
-   composed_graph = nx.compose(food_recipe_graph, food_subs_graph)
 
-   for index, row in edges_df.iterrows():
-    ingr = row['Ingredient']
-    sub = row['Substitution']
+def combine_graphs(
+    food_recipe_graph: nx.DiGraph,
+    food_subs_graph: nx.DiGraph,
+    edges_df: pd.DataFrame,
+    clusters: dict[int, list],
+) -> nx.DiGraph:
+    composed_graph = nx.compose(food_recipe_graph, food_subs_graph)
 
-    for cluster_id, items in clusters.items():
-        if cluster_id != -1:
-            items_set = set(items)
-            if ingr in items_set:
-                ingr = items[0]
-                break
+    for index, row in edges_df.iterrows():
+        ingr = row["Ingredient"]
+        sub = row["Substitution"]
 
-    composed_graph.add_edge(ingr, sub, label='has_sub')
+        for cluster_id, items in clusters.items():
+            if cluster_id != -1:
+                items_set = set(items)
+                if ingr in items_set:
+                    ingr = items[0]
+                    break
+                
+        composed_graph.add_edge(ingr, sub, label="has_sub")
 
     return composed_graph
