@@ -5,6 +5,7 @@ import os
 from tqdm import tqdm
 import pandas as pd
 from utils import get_edge_index_from_label_type
+import torch_geometric
 
 load_dotenv()
 
