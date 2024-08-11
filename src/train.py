@@ -3,13 +3,14 @@ from torch.nn.functional import mse_loss, binary_cross_entropy_with_logits
 from torch_geometric.nn import to_hetero
 from torch_geometric.nn import Linear, SAGEConv
 from torch.optim import SGD
-from torch_geometric.datasets import AmazonBook
 from torch_geometric.transforms import RandomLinkSplit
-from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.metrics import classification_report
 from torch_geometric.utils import negative_sampling
-from torch.utils.data import DataLoader
-from torch_geometric.nn import LightGCN
-from torch.optim import Adam
+from sklearn.metrics import roc_auc_score
+from torch import nn
+from torch_geometric.data import HeteroData
+import torch_geometric
+from torch.nn.modules.loss import _Loss
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -53,7 +54,7 @@ class Model(torch.nn.Module):
       return self.decoder(z_dict, edge_label_index)
   
 
-def train_link_prediction(model, train_data, val_data, optimizer, start, to, epochs=5):
+def train_link_prediction(model, train_data, val_data, optimizer, loss_fn, start, to, epochs=5):
     model = model.to(device)
 
     for epoch in range(epochs):
@@ -63,7 +64,7 @@ def train_link_prediction(model, train_data, val_data, optimizer, start, to, epo
                      train_data[start,'has_sub', to].edge_label_index)
 
         target = train_data[start,'has_sub', to].edge_label
-        loss = mse_loss(pred, target)
+        loss = loss_fn(pred, target)
         loss.backward()
         optimizer.step()
 
@@ -73,31 +74,36 @@ def train_link_prediction(model, train_data, val_data, optimizer, start, to, epo
                       val_data[start,'has_sub', to].edge_label_index)
         pred = pred.clamp(min=0, max=1)
         target = val_data[start,'has_sub', to].edge_label.float()
-        val_loss = mse_loss(pred, target).sqrt()
+        val_loss = loss_fn(pred, target)
+        if epoch % 50 == 0:
+          print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Val Loss: {val_loss:.4f}')
 
         print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Val Loss: {val_loss:.4f}')
+      
 
-def test_link_prediction(model, test_data, start, to):
+def test_link_prediction(model, test_data, loss_fn, start, to):
     model = model.to(device)
-    model.eval()
 
+    model.eval()
     with torch.inference_mode():
-        pred = model(test_data.x_dict, test_data.edge_index_dict,
-                     test_data[start, 'has_sub', to].edge_label_index)
-    pred = pred.clamp(min=0, max=5)
-    target = test_data[start, 'has_sub', to].edge_label.float()
+      pred = model(test_data.x_dict, test_data.edge_index_dict,
+                  test_data[start,'has_sub', to].edge_label_index)
+
+    pred = pred.clamp(min=0, max=1)
+    target = test_data[start,'has_sub', to].edge_label.float()
+    print(pred)
+    print(target)
 
     y_true = target.cpu().numpy()
     y_pred = pred.round().detach().cpu().numpy()
 
-    print(classification_report(y_true=y_true, y_pred=y_pred, digits=4))
 
-    # Compute ROC AUC score
-    roc_auc = roc_auc_score(y_true, y_pred)
-    print(f'ROC AUC: {roc_auc:.4f}')
+    val_loss = loss_fn(pred, target)
+    roc = roc_auc_score(y_true=y_true, y_score=y_pred)
 
-    val_loss = mse_loss(pred, target).sqrt()
     print(f'Loss: {val_loss:.4f}')
+    print(f'ROC AUC Score: {roc:.4f}')
+    print(classification_report(y_true=y_true, y_pred=y_pred, digits=4))
     
 
 def train_lightgcn(dataset, train_loader, model, optimizer, num_ingrs, epochs=1):
@@ -140,3 +146,27 @@ def train_lightgcn(dataset, train_loader, model, optimizer, num_ingrs, epochs=1)
             total_examples += pos_rank.numel()
 
             print(f'Epoch: {epoch:03d}, Loss: {total_loss / total_examples:.4f}')
+
+def train_model(data: HeteroData, loss_fn: _Loss):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    data_copy = data.clone()
+    del data_copy['recipe']
+    del data_copy['recipe', 'has_ingr', 'ingr']
+    del data_copy['ingr', 'also_known_as', 'ingr']
+    torch.save(data_copy, 'hetero_data.pt')
+    data_copy = torch.load('hetero_data.pt')
+    start, forward_relation, to = 'ingr', 'has_sub', 'ingr'
+    train_val_test_split = RandomLinkSplit(num_val=0.1,
+                                        num_test=0.1,
+                                        add_negative_train_samples=True, # ne True, ima negative_samples function gore
+                                        is_undirected=False,
+                                        neg_sampling_ratio=2.0,
+                                        edge_types=(start, forward_relation, to),
+                                        rev_edge_types=(start, forward_relation, to)
+                                        )
+    train_data, val_data, test_data = train_val_test_split(data_copy)
+    model = Model(hidden_channels=1024, data=data_copy, start=start, to=to)
+    optimizer = SGD(model.parameters(), lr=0.001)
+    loss_fn = nn.MSELoss().to(device)
+    train_link_prediction(model.to(device), train_data.to(device), val_data.to(device), optimizer, loss_fn, start, to, 400)
+    test_link_prediction(model=model, test_data=test_data.to(device), start=start, to=to, loss_fn=loss_fn)
