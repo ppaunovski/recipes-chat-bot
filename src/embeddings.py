@@ -36,7 +36,7 @@ def get_subs_embeddings(subs_df: pd.DataFrame) -> list[list[float]]:
     subs_embeddings.append(list(map(get_embedding_from_model, all_subs)))
   return subs_embeddings
 
-def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame):
+def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame) -> torch_geometric.data.HeteroData:
   data = HeteroData()
   ingrs_emb = list(map(get_embedding_from_model, ingrs))
 
@@ -60,4 +60,6 @@ def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame):
   
   data['recipe']['num_nodes'] = data['recipe'].x.shape[0]
   data['ingr']['num_nodes'] = data['ingr'].x.shape[0]
+
+  return data
 
