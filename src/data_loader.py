@@ -31,7 +31,9 @@ def csv_file_to_pd_df(path_to_csv: str) -> pd.DataFrame:
 
 
 def get_nodes_and_egdes_df(composed_graph: nx.DiGraph) -> tuple[pd.DataFrame, pd.DataFrame]:
-    nodes_df = pd.DataFrame.from_dict(dict(composed_graph.nodes(data=True)), orient='index').reset_index()
+    nodes_df = pd.DataFrame({
+        'Node': composed_graph.nodes()
+    })
     nodes_df.columns = ['Node'] + list(nodes_df.columns[1:])
     edges_df = nx.to_pandas_edgelist(composed_graph)
 
