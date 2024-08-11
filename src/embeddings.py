@@ -6,6 +6,9 @@ from tqdm import tqdm
 import pandas as pd
 from utils import get_edge_index_from_label_type
 import torch_geometric
+from torch_geometric.data import HeteroData
+from torch import Tensor
+import numpy as np
 
 load_dotenv()
 
