@@ -60,9 +60,9 @@ def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame) -> torch_geo
 
   merged_df = edges_df
 
-  data['recipe', 'has_ingr', 'ingr'].edge_index = Tensor(get_edge_index_from_label_type('has_ingr')).to(dtype=torch.int64)
-  data['ingr', 'also_known_as', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type('also_known_as')).to(dtype=torch.int64)
-  data['ingr', 'has_sub', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type('has_sub')).to(dtype=torch.int64)
+  data['recipe', 'has_ingr', 'ingr'].edge_index = Tensor(get_edge_index_from_label_type(merged_df, 'has_ingr')).to(dtype=torch.int64)
+  data['ingr', 'also_known_as', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type(merged_df, 'also_known_as')).to(dtype=torch.int64)
+  data['ingr', 'has_sub', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type(merged_df, 'has_sub')).to(dtype=torch.int64)
   
   data['recipe']['num_nodes'] = data['recipe'].x.shape[0]
   data['ingr']['num_nodes'] = data['ingr'].x.shape[0]
