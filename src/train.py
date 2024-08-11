@@ -149,12 +149,12 @@ def train_lightgcn(dataset, train_loader, model, optimizer, num_ingrs, epochs=1)
 
 def train_model(data: HeteroData, loss_fn: _Loss):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
     data_copy = data.clone()
     del data_copy['recipe']
     del data_copy['recipe', 'has_ingr', 'ingr']
     del data_copy['ingr', 'also_known_as', 'ingr']
-    torch.save(data_copy, 'hetero_data.pt')
-    data_copy = torch.load('hetero_data.pt')
+
     start, forward_relation, to = 'ingr', 'has_sub', 'ingr'
     train_val_test_split = RandomLinkSplit(num_val=0.1,
                                         num_test=0.1,
@@ -164,9 +164,11 @@ def train_model(data: HeteroData, loss_fn: _Loss):
                                         edge_types=(start, forward_relation, to),
                                         rev_edge_types=(start, forward_relation, to)
                                         )
+    
     train_data, val_data, test_data = train_val_test_split(data_copy)
     model = Model(hidden_channels=1024, data=data_copy, start=start, to=to)
     optimizer = SGD(model.parameters(), lr=0.001)
-    loss_fn = nn.MSELoss().to(device)
+    loss_fn = loss_fn.to(device)
+
     train_link_prediction(model.to(device), train_data.to(device), val_data.to(device), optimizer, loss_fn, start, to, 400)
     test_link_prediction(model=model, test_data=test_data.to(device), start=start, to=to, loss_fn=loss_fn)
