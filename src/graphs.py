@@ -112,12 +112,12 @@ def get_similar_substitution_nodes(
     treshold: float = 0.96,
 ) -> list[tuple[str, str]]:
     # Step 1: Collect all ingredient embeddings and substitute embeddings
-    ingr_embeddings = np.array(
-        [
-            get_embedding_from_model(row["ingredient"])
-            for _, row in recipe_ingredients_df.iterrows()
-        ]
-    )
+    ingr_embeddings = []
+    for _, row in tqdm(recipe_ingredients_df.iterrows(), total=len(recipe_ingredients_df)):
+        ingr_embeddings.append(get_embedding_from_model(row['ingredient']))
+
+    ingr_embeddings = np.array(ingr_embeddings)
+
     subs_embeddings_flat = np.vstack(
         subs_embeddings
     )  # Flatten list of lists to a single matrix
