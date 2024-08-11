@@ -42,6 +42,8 @@ def get_subs_embeddings(subs_df: pd.DataFrame) -> list[list[float]]:
 
 def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame) -> torch_geometric.data.HeteroData:
   data = HeteroData()
+  ingrs = nodes_df.query('type=="ingr"')['Node'].values.tolist()
+
   ingrs_emb = list(map(get_embedding_from_model, ingrs))
 
   data['ingr'].x = Tensor(np.array(ingrs_emb)).to(dtype=torch.float32)
