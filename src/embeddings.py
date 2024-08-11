@@ -43,21 +43,28 @@ def get_subs_embeddings(subs_df: pd.DataFrame) -> list[list[float]]:
 def get_hetero_data(nodes_df: pd.DataFrame, edges_df: pd.DataFrame) -> torch_geometric.data.HeteroData:
   ingrs = nodes_df.query('type=="ingr"')['Node'].values.tolist()
   recipes_df = nodes_df.query('type=="recipe"')['Node'].values.tolist()
+
   ingrs_emb = list(map(get_embedding_from_model, ingrs))
   recipe_emb = list(map(get_embedding_from_model, recipes_df))
+
   data = HeteroData()
+
   data['ingr'].x = Tensor(np.array(ingrs_emb)).to(dtype=torch.float32)
   data['recipe'].x = Tensor(np.array(recipe_emb)).to(dtype=torch.float32)
+
   node_to_id_dict = {
     k: v for k,v in nodes_df[['Node', 'index']].values
   }
+
   edges_df['index'] = edges_df['source'].apply(lambda node: node_to_id_dict[node])
   edges_df['index_target'] = edges_df['target'].apply(lambda node: node_to_id_dict[node])
+
   merged_df = edges_df
 
   data['recipe', 'has_ingr', 'ingr'].edge_index = Tensor(get_edge_index_from_label_type(merged_df, 'has_ingr')).to(dtype=torch.int64)
   data['ingr', 'also_known_as', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type(merged_df, 'also_known_as')).to(dtype=torch.int64)
   data['ingr', 'has_sub', 'ingr'].edge_index =  Tensor(get_edge_index_from_label_type(merged_df, 'has_sub')).to(dtype=torch.int64)
+  
   data['recipe']['num_nodes'] = data['recipe'].x.shape[0]
   data['ingr']['num_nodes'] = data['ingr'].x.shape[0]
 
