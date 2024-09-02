@@ -8,6 +8,9 @@ import streamlit as st
 from src.document_processor import query_to_answer
 
 
+memory = []
+
+
 st.title("Recipes Chatbot")
 
 if "messages" not in st.session_state:
@@ -19,15 +22,16 @@ else:
 
 
 if query := st.chat_input("How can I help you?"):
-    
+
     st.chat_message("user").markdown(query)
     st.session_state.messages.append({"role": "user", "content": query})
 
-    response = query_to_answer(query=query)
-    
+    response = query_to_answer(query=query, memory=memory)
+
     with st.chat_message("assistant"):
         st.markdown(response)
 
     st.session_state.messages.append({"role": "assistant", "content": response})
 
-    #print(st.session_state.messages)
+    # print(st.session_state.messages)
+    print(memory)
