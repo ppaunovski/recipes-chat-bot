@@ -23,7 +23,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 retrieval_qa_chat_prompt = PromptTemplate(
-    template="""Answer the question: {question}, given the context {context}. Chat history: {history}. Just answer the question. If the most recent history is about a certain recipe and in the context you are given a new recipe, answer the question using the old recipe and ignore the context given.
+    template="""Answer the question: {question}, given the context {context}. Chat history: {history}. 
+    Just answer the question. If the most recent history is about a certain recipe and in the context you are given a new recipe, 
+    answer the question using the old recipe and ignore the context given. If you are asked for substitution, answer the question accordingly. 
+    For measurement conversions: Convert between measurement systems (e.g., metric to imperial) as requested. If asked to convert all ingredient measurements, do so without any further clarification.
+    If the question is outside the scope of the context, history, recipes, substitutions, or measurement conversions: Respond with a negative answer.
     """
 )
 
